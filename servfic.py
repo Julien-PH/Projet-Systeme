@@ -9,12 +9,12 @@ import posix_ipc as pos
 import time
 from daemon import runner
  
-class Deamon():
-    def __init__(self):
+#class Deamon():
+   # def __init__(self):
         #va falloir peut être le remplir je crois
-
-    def run(self):
-        main()
+        #mdr
+    #def run(self):
+        #main()
     
 
 def fermer_serveur(signal, frame):    #Appelé quand vient l'heure de fermer le serveur avec un ^C
@@ -22,8 +22,11 @@ def fermer_serveur(signal, frame):    #Appelé quand vient l'heure de fermer le 
     sys.exit(0)
 
 def consultation(pidC,numEnreg):
-    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)  #On creer un sémaphore par fichier
-
+    try:
+        S = pos.Semaphore("/Semaphore_consul" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_consul" + nomFichier,pos.O_CREAT)
+      #On creer un sémaphore par fichier
     S.acquire()  #P(S) on bloque l'acces au fichier pour les autres threads 
     try:    #on essaye d'ouvrir le fichier
         with open(nomFichier, "r") as fichier:  #with permet d'ouvrir le fichier puis le ferme automatiquement, ici on ouvre le fichier en lecture
@@ -36,35 +39,89 @@ def consultation(pidC,numEnreg):
 
     S.close()   #!!! on ferme le sémaphore
     FSC.send(contenu,None,pidC) #On met dans la file FSC le contenu rechercher pour le client 
+
+
+
     
 def modification(pidC,numEnreg,newEnreg):
-    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
     try:
-        S.acquire(nbsecondes)  #P(S) avant de bloquer le fichier, on attend un temps donné maximum au delà du quel on abandonne                
+        S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_" + nomFichier,pos.O_CREAT)
+    try:
+        Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier ,pos.O_CREAT,initial_value=0)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_laps" + nomFichier,pos.O_CREAT)
+    try:
+        Svisu = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Svisu = pos.Semaphore("/Semaphore_visu" + nomFichier,pos.O_CREAT)   
+    try:
+        Sadd = pos.Semaphore("/Semaphore_add" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Sadd = pos.Semaphore("/Semaphore_add" + nomFichier,pos.O_CREAT)
+    try:
+        Sconsul = pos.Semaphore("/Semaphore_consul" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Sconsul = pos.Semaphore("/Semaphore_consul" + nomFichier,pos.O_CREAT) 
+    S.acquire()  #P(S) avant de bloquer le fichier, on attend un temps donné maximum au delà du quel on abandonne
+    Sconsul.acquire() # on bloque les sémaphores des autres fonctions
+    Sadd.acquire()
+    Svisu.acquire()
+    try:
+        with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
+            listEnregistrements = fichier.readlines()   #On recupère tout les enregistrements
         try:
-            with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
-                listEnregistrements = fichier.readlines()   #On recupère tout les enregistrements
-            try:
-                with open(nomFichier, "w") as fichier:  #On ouvre le fichier en ecriture
-                    for enregistrement in listEnregistrements:
-                        if enregistrement.startswith(numEnreg + ": "):
-                            enregistrement = numEnreg + ": " + newEnreg + "\n"  #On remplace l'enregistrement voulu
-                        fichier.write(enregistrement)    #On réécrit chaque enregistrement
-                notif = "Modification effectué sur l'enregistrement numéro " + numEnreg + "."
-            except:
-                notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."            
+            with open(nomFichier, "w") as fichier:  #On ouvre le fichier en ecriture
+                for enregistrement in listEnregistrements:
+                    if enregistrement.startswith(numEnreg + ": "):
+                        contenu = enregistrement.strip('\n')
+                        FSC.send(contenu,None,pidC) # envoie du contenu au user
+                        try:
+                            Slaps.acquire(8) # on attend max 8s la réponse de l'utilisateur
+                            msgCons = FCS.receive(pidClient) #message reçu 
+                        except pos.BusyError:   #si le temps d'attente max est dépasser, on notifie l'échec
+                            notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, modification abandonnée."
+                        if(msgCons == "o" or msgCons == "O"):
+                            enregistrement = numEnreg + ":" + newEnreg + "\n"  #On remplace l'enregistrement voulu
+                            fichier.write(enregistrement)    #On réécrit chaque enregistrement
+                            notif = "Modification effectué sur l'enregistrement numéro " + numEnreg + "."
+                        else:
+                            notif = "Annulation de l'enregistrement"    
         except:
-            notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
-        S.release() #V(S)
-    except pos.BusyError:   #si le temps d'attente max est dépasser, on notifie l'échec
-        notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, modification abandonnée."
+            notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."            
+    except:
+        notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
+    S.release() #V(S)
     S.close()   #!
     FSC.send(notif,None,pidC)
 
 def suppression(pidC,numEnreg):
-    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
     try:
-        S.acquire()  #P(S)
+        S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_" + nomFichier,pos.O_CREAT)
+    try:
+        Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier,pos.O_CREAT)
+    try:
+        Svisu = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Svisu = pos.Semaphore("/Semaphore_visu" + nomFichier,pos.O_CREAT)   
+    try:
+        Sadd = pos.Semaphore("/Semaphore_add" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Sadd = pos.Semaphore("/Semaphore_add" + nomFichier,pos.O_CREAT)
+    try:
+        Sconsul = pos.Semaphore("/Semaphore_consul" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        Sconsul = pos.Semaphore("/Semaphore_consul" + nomFichier,pos.O_CREAT)
+    Sconsul.acquire()
+    Sadd.acquire()
+    Svisu.acquire()      
+    try:
+        S.acquire(nbsecondes)  #P(S)
         try:
             with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
                 listEnregistrements = fichier.readlines()   #On recupère tout les enregistrements
@@ -85,8 +142,10 @@ def suppression(pidC,numEnreg):
     FSC.send(notif,None,pidC)
      
 def adjonction(pidC,newEnreg):
-    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
-    
+    try:
+        S = pos.Semaphore("/Semaphore_add" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_add" + nomFichier,pos.O_CREAT)
     S.acquire()  #P(S)
     try:
         with open(nomFichier, "a") as fichier:  #On ouvre le fichier en ajout
@@ -101,8 +160,10 @@ def adjonction(pidC,newEnreg):
     FSC.send(notif,None,pidC)
  
 def visualisation(pidC):
-    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
-    
+    try:
+        S = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_visu" + nomFichier,pos.O_CREAT)
     S.acquire()  #P(S)
     try:
         with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
@@ -160,23 +221,23 @@ def main():
 
         #On determine la fonction à exécuter en selon l'action demandé par le client
         if action == 'consultation':
-                consultation(pidClient,numEnregistrement)
+               thread.start_new_thread(consultation(pidClient,numEnregistrement))
         elif action == 'modification':
-                modification(pidClient,numEnregistrement,nouvelEnreg)
+                thread.start_new_thread(modification(pidClient,numEnregistrement,nouvelEnreg))
         elif action == 'suppression':
-                suppression(pidClient,numEnregistrement)
+                thread.start_new_thread(suppression(pidClient,numEnregistrement))
         elif action == 'adjonction':
-                adjonction(pidClient,nouvelEnreg)
+                thread.start_new_thread(adjonction(pidClient,nouvelEnreg))
         elif action == 'visualisation':
-                visualisation(pidClient)
+                thread.start_new_thread(visualisation(pidClient))
 
 #on lance le daemon, main etant dans le run de ce dernier
-serveur = Daemon()
-daemon_runner = runner.DaemonRunner(serveur)
-daemon_runner.do_action()
+#serveur = Daemon()
+#daemon_runner = runner.DaemonRunner(serveur)
+#daemon_runner.do_action()
 
 #sinon si ça marche pas avec le daemon :
-#main()
+main()
 
 
 

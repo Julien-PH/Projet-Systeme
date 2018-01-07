@@ -4,7 +4,9 @@
 import os
 import sys
 import posix_ipc as pos
- 
+#import subprocess
+#subprocess.call("start python prog2.py")
+
 def consultation():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
@@ -13,6 +15,7 @@ def consultation():
     print(format(msgCons))  #On recois et on affiche le résultat de la requete
     
 def modification():
+    Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier ,pos.O_CREAT,initial_value=0)
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez modifier.")
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2) #On réalise déjà une consultation
     print("Veuillez patienter le temps que le serveur traite votre requete")
@@ -22,6 +25,7 @@ def modification():
     if choixModif == "O":
         NouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")    #si oui, il entre le nouveau
         FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + str(NouvelEnreg) , None, 1)    #On réalise mtn une modification
+        Slaps.release()
         print("Veuillez patienter le temps que le serveur traite votre requete")
         msgModif = FSC.receive(pidClient)   #!
         print(format(msgModif))
