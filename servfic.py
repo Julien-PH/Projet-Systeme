@@ -22,25 +22,41 @@ def fermer_serveur(signal, frame):    #Appelé quand vient l'heure de fermer le 
     sys.exit(0)
 
 def consultation(pidC,numEnreg):
-    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
-    S.acquire()  #P(S)
+    S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)  #On creer un sémaphore par fichier
 
-    #On récup le contenu avec numEnreg et nomFichier
+    S.acquire()  #P(S) on bloque l'acces au fichier pour les autres threads 
+    try:    #on essaye d'ouvrir le fichier
+        with open(nomFichier, "r") as fichier:  #with permet d'ouvrir le fichier puis le ferme automatiquement, ici on ouvre le fichier en lecture
+            for enregistrement in fichier.readlines():  #on parcourt tout les enregistrement du fichier
+                if enregistrement.startswith(numEnreg + ": "):     #On cherche l'enregistrement qui correpond au numero rechercher
+                    contenu = enregistrement.strip('\n')    #On récup le contenu de l'enregistrement que le client souhaite (sans le saut de ligne)
+    except: #si il y a echec, on le notifi
+        contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
+    S.release() #V(S) on libère le fichier
 
-    S.release() #V(S)
-    S.close()   #!
-    FSC.send(contenu,None,pidC)
+    S.close()   #!!! on ferme le sémaphore
+    FSC.send(contenu,None,pidC) #On met dans la file FSC le contenu rechercher pour le client 
     
 def modification(pidC,numEnreg,newEnreg):
     S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
     try:
-        S.acquire(nbsecondes)  #P(S)
-
-        #réaliser modification avec numEnreg, newEnreg et nomFichier
-        #Notif de reussite ou non
-
+        S.acquire(nbsecondes)  #P(S) avant de bloquer le fichier, on attend un temps donné maximum au delà du quel on abandonne                
+        try:
+            with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
+                listEnregistrements = fichier.readlines()   #On recupère tout les enregistrements
+            try:
+                with open(nomFichier, "w") as fichier:  #On ouvre le fichier en ecriture
+                    for enregistrement in listEnregistrements:
+                        if enregistrement.startswith(numEnreg + ": "):
+                            enregistrement = numEnreg + ": " + newEnreg + "\n"  #On remplace l'enregistrement voulu
+                        fichier.write(enregistrement)    #On réécrit chaque enregistrement
+                notif = "Modification effectué sur l'enregistrement numéro " + numEnreg + "."
+            except:
+                notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."            
+        except:
+            notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
         S.release() #V(S)
-    except pos.BusyError:
+    except pos.BusyError:   #si le temps d'attente max est dépasser, on notifie l'échec
         notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, modification abandonnée."
     S.close()   #!
     FSC.send(notif,None,pidC)
@@ -49,10 +65,19 @@ def suppression(pidC,numEnreg):
     S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
     try:
         S.acquire()  #P(S)
-
-        #réaliser la suppression avec numEnreg et nomFichier
-        #Notif de reussite ou non
-
+        try:
+            with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
+                listEnregistrements = fichier.readlines()   #On recupère tout les enregistrements
+            try:
+                with open(nomFichier, "w") as fichier:  #On ouvre le fichier en ecriture
+                    for enregistrement in listEnregistrements:
+                        if not enregistrement.startswith(numEnreg + ": "):  
+                            fichier.write(enregistrement)    #On réécrit chaque enregistrement si ce n'est pas celui qui doit être effacer
+                notif = "Suppression effectué sur l'enregistrement numéro " + numEnreg + "."
+            except:
+                notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."            
+        except:
+            notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
         S.release() #V(S)
     except:
         notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, suppression abandonnée."
@@ -61,10 +86,15 @@ def suppression(pidC,numEnreg):
      
 def adjonction(pidC,newEnreg):
     S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
+    
     S.acquire()  #P(S)
-
-    #On ajoute le contenu avec nuwEnreg et nomFichier
-    #Notif de reussite ou non
+    try:
+        with open(nomFichier, "a") as fichier:  #On ouvre le fichier en ajout
+            #creer newNum !!
+            fichier.write(newNum + ": " + newEnreg + "\n")    #On ajoute le nouvel enregistrement au fichier,newNum permet de classer nos enregistrement et "\n" permet de séparé les enregistrements
+            notif = "Enregistrement numéro " + newNum + " effectué."
+    except:
+        notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
     
     S.release() #V(S)
     S.close()   #!
@@ -72,11 +102,15 @@ def adjonction(pidC,newEnreg):
  
 def visualisation(pidC):
     S = pos.Semaphore("/Semaphore_" + nomFichier ,pos.O_CREAT,initial_value=0)
+    
     S.acquire()  #P(S)
-
-    #On récup le contenu avec nomFichier
-
+    try:
+        with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
+            contenu = fichier.read()    #On récupère entierement le contenu du fichier
+    except:
+        contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."   
     S.release() #V(S)
+    
     S.close()   #!
     FSC.send(contenu,None,pidC)
 
@@ -136,25 +170,31 @@ def main():
         elif action == 'visualisation':
                 visualisation(pidClient)
 
-
+#on lance le daemon, main etant dans le run de ce dernier
 serveur = Daemon()
 daemon_runner = runner.DaemonRunner(serveur)
 daemon_runner.do_action()
 
+#sinon si ça marche pas avec le daemon :
+#main()
+
+
+
 #--TODO--
 
-#en faire un daemon -> à tester
+#en faire un daemon -> à tester (serieux ça a l'air chaud)
     #au besoin : sudo apt-get install python-daemon
     #faire un signal d'arret -> à tester
 
 #regler l'init des files (l'except puis ce qu'il execute m'inquite)
+    #faut t'il aussi les detruire si on tue le serveur ?
+
+#créer les threads (j'ai regardé des tutos, même genre de bourbier que le deamon, testons le deamon avant de faire les thread sinon ça marchera jamais.)
+    # j'ai pas lu mais voilà le lien de la prof : https://www.python-course.eu/advanced_topics.php      
+#effectuer chaque operation sur fichier -> à tester
+    #garder en tête que la reception de message est douteuse, voir mon commentaire en debut de boucle true du serveur
             
-#créer les threads
-            
-#effectuer chaque operation sur fichier
-    #j'ai toujours pas compris comment on va s'y prendre avec les enregistrements
-            
-#s'occuper des sémaphores
+#s'occuper des sémaphores -> à tester
     #On utilise close() ou unlink() selon vous ? http://semanchuk.com/philip/posix_ipc/
     #pour leurs création, j'ai mis en parametre O.CREAT uniquement, on s'en fou d'avoir une erreur si la sémaphore existe dèjà, c'est pas comme le tp
     #temps limite a faire avec -d -> à tester

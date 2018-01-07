@@ -6,22 +6,22 @@ import sys
 import posix_ipc as pos
  
 def consultation():
-    recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")
-    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3)
+    recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
+    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgCons = FSC.receive(pidClient) #receive a revoir !
-    print(format(msgCons))
+    print(format(msgCons))  #On recois et on affiche le résultat de la requete
     
 def modification():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez modifier.")
-    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2)
+    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2) #On réalise déjà une consultation
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgCons = FSC.receive(pidClient) #!
     print(format(msgCons))
-    choixModif = raw_input("Voulez vous changer ce contenu ? O/N")
+    choixModif = raw_input("Voulez vous changer ce contenu ? O/N")  #on demande a l'user si il veut vraiment modifier l'enregistrement qu'on vient de lui afficher
     if choixModif == "O":
-        NouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")
-        FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + str(NouvelEnreg) , None, 1)
+        NouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")    #si oui, il entre le nouveau
+        FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + str(NouvelEnreg) , None, 1)    #On réalise mtn une modification
         print("Veuillez patienter le temps que le serveur traite votre requete")
         msgModif = FSC.receive(pidClient)   #!
         print(format(msgModif))
@@ -32,13 +32,13 @@ def modification():
 
 def suppression():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez supprimer.")
-    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2)
+    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2)  #On réalise déjà une consultation
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgCons = FSC.receive(pidClient) #!
     print(format(msgCons))
-    choixSupp = raw_input("Voulez vous supprimer ce contenu ? O/N")
+    choixSupp = raw_input("Voulez vous supprimer ce contenu ? O/N") #on demande a l'user si il veut vraiment supprimer l'enregistrement qu'on vient de lui afficher
     if choixModif == "O":
-        FCS.send("suppression" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)
+        FCS.send("suppression" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)  #Si oui, on réalise mtn une suppression
         print("Veuillez patienter le temps que le serveur traite votre requete")
         msgSupp = FSC.receive(pidClient)   #!
         print(format(msgSupp))
@@ -49,14 +49,14 @@ def suppression():
      
 def adjonction():
     recupNouvelEnreg = raw_input("Veuillez entrer votre nouvel enregistrement.")
-    FCS.send("adjonction" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + str(recupNouvelEnreg) , None, 3)
+    FCS.send("adjonction" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + str(recupNouvelEnreg) , None, 3)  #On réalise une adjonction
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgAdj = FSC.receive(pidClient) #!
     print(format(msgAdj))
 
  
 def visualisation():
-    FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, 3)
+    FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, 3)    #On réalise une visualisation
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgVisu = FSC.receive(pidClient)  #!
     print(format(msgVisu))
