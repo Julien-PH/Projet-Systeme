@@ -58,10 +58,10 @@ def consultation(pidC,numEnreg):
     S.release() #V(S) on libÃ¨re le fichier
     S.close()   #!!! on ferme le sÃ©maphore
     print(contenu)
-    FSC.send(contenu,None,1) #On met dans la file FSC le contenu rechercher pour le client 
+    FSC.send(contenu,None,int(pidC)) #On met dans la file FSC le contenu rechercher pour le client 
 
 
-def visualisation():
+def visualisation(pidC):
     try:
         S = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
     except pos.ExistentialError:
@@ -74,7 +74,7 @@ def visualisation():
         contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."   
     S.release() #V(S)
     S.close()   #!
-    FSC.send(contenu,None,1)
+    FSC.send(contenu,None,int(pidC))
     
 def modification(pidC,numEnreg,newEnreg):
     try:
@@ -234,7 +234,7 @@ def main():
         elif action == 'adjonction':
                 thread.start_new_thread(adjonction(pidClient,nouvelEnreg))
         elif action == 'visualisation':
-                thread.start_new_thread(visualisation,())
+                thread.start_new_thread(visualisation,(pidClient,))
 
 #on lance le daemon, main etant dans le run de ce dernier
 #serveur = Daemon()

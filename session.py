@@ -7,17 +7,21 @@ import posix_ipc as pos
 #import subprocess
 #subprocess.call("start python prog2.py")
 
+#On récupère les paramètres et varables utiles                
+nomFichier = sys.argv[0]    #récupère le 1er paramètre, où le nom du fichier doit être spécifier
+pidClient = os.getpid()     #On récupère l'id du processus client
+
 def consultation():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
-    print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgCons = FSC.receive() 
+    print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
+    msgCons = FSC.receive(pidClient) 
     print(msgCons)  #On recois et on affiche le résultat de la requete
 
 def visualisation():
     FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, 3)    #On réalise une visualisation
-    print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgVisu = FSC.receive()  #!
+    print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
+    msgVisu = FSC.receive(pidClient)  #!
     print(msgVisu)   
     
 def modification():
@@ -94,9 +98,7 @@ except pos.ExistentialError:
     S = pos.unlink_message_queue("/queueFSC") #destruction de la file
     FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT) #puis redemande
 
-#On récupère les paramètres et varables utiles                
-nomFichier = sys.argv[0]    #récupère le 1er paramètre, où le nom du fichier doit être spécifier
-pidClient = os.getpid()     #On récupère l'id du processus client
+
 
 actionEffectue = False
 while actionEffectue == False:   #On recommence tant qu'on a pas une action valide
