@@ -1,0 +1,6 @@
+1: ceci est un enregistrement
+2: ceci est un autre enregistrement
+3: encore un enregistrment
+4: un autre
+5: encore un
+6: un dernier enregistrement

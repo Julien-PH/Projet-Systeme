@@ -84,7 +84,7 @@ def modification(pidC,numEnreg,newEnreg):
     try:
         Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier ,pos.O_CREAT,initial_value=0)
     except pos.ExistentialError:
-        S = pos.Semaphore("/Semaphore_laps" + nomFichier,pos.O_CREAT)
+        Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier,pos.O_CREAT)
     try:
         Svisu = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
     except pos.ExistentialError:
@@ -110,8 +110,9 @@ def modification(pidC,numEnreg,newEnreg):
                     if enregistrement.startswith(numEnreg + ": "):
                         contenu = enregistrement.strip('\n')
                         FSC.send(contenu,None,pidC) # envoie du contenu au user
+                        #!! msgCons pas initialisé, ça gene en python ?
                         try:
-                            Slaps.acquire(8) # on attend max 8s la réponse de l'utilisateur
+                            Slaps.acquire(nbsecondes) # on attend la réponse de l'utilisateur un temps maximum donnée en parametre du serveur
                             msgCons = FCS.receive(pidClient) #message reçu 
                         except pos.BusyError:   #si le temps d'attente max est dépasser, on notifie l'échec
                             notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, modification abandonnée."v
@@ -126,6 +127,7 @@ def modification(pidC,numEnreg,newEnreg):
     except:
         notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
     S.release() #V(S)
+    Slaps.close()   #!
     S.close()   #!
     FSC.send(notif,None,pidC)
 
@@ -222,8 +224,6 @@ def main():
         numEnregistrement = listInfo[4]     #numEnreg peut être "-" parfois
         nouvelEnreg = listInfo[5]     #nouvelEnreg peut être "-" parfois
         
-        #New thread(split(3), (split 1 et 2)) /*split 1 et 2 correspondent aux autres infos envoyées comme par exemple le pid ou le numéro d’enregistrement*/
-
         #On determine la fonction à exécuter en selon l'action demandé par le client
         if action == 'consultation':
                thread.start_new_thread(consultation(pidClient,numEnregistrement))
@@ -256,17 +256,20 @@ main()
     #faut t'il aussi les detruire si on tue le serveur ?
 
 #créer les threads (j'ai regardé des tutos, même genre de bourbier que le deamon, testons le deamon avant de faire les thread sinon ça marchera jamais.)
-    # j'ai pas lu mais voilà le lien de la prof : https://www.python-course.eu/advanced_topics.php      
+    # j'ai pas lu mais voilà le lien de la prof : https://www.python-course.eu/advanced_topics.php
+    
 #effectuer chaque operation sur fichier -> à tester
     #garder en tête que la reception de message est douteuse, voir mon commentaire en debut de boucle true du serveur
             
 #s'occuper des sémaphores -> à tester
     #On utilise close() ou unlink() selon vous ? http://semanchuk.com/philip/posix_ipc/
     #pour leurs création, j'ai mis en parametre O.CREAT uniquement, on s'en fou d'avoir une erreur si la sémaphore existe dèjà, c'est pas comme le tp
+        #les try/except sur chaque creation sont INUTILE
     #temps limite a faire avec -d -> à tester
         #nbsecondes int ou float à tester
         #Vous pensez qu'il faut mettre un temps min aussi pour les autres requetes ? genre adjonction pour moi c'est aussi important qu'une modif
-
+    #le nom du semaphore Slaps doit etre None, le SE chosira un nom arbitraire et on supprime ça (unlink) ensuite, personne d'autre doit pourvoir utiliser le meme sémaphore pour chronometré
+        
 #tester tout
 
 #commenter
