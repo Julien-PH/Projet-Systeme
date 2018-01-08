@@ -4,7 +4,7 @@
 import os
 import signal
 import sys
-from threading import Thread
+import thread
 import posix_ipc as pos
 import time
 from daemon import runner
@@ -15,33 +15,66 @@ from daemon import runner
         #mdr
     #def run(self):
         #main()
-    
+
+#On rÃ©cupÃ¨re les paramÃ¨tres et varables utiles        
+nomFichier = sys.argv[1]    #rÃ©cupÃ¨re le 1er paramÃ¨tre, le nom du fichier
+nbsecondes = sys.argv[2]    #rÃ©cupÃ¨re le 2eme paramÃ¨tre, le nombre de secondes
+pidServeur = os.getpid()     #On rÃ©cupÃ¨re l'id du processus serveur, peut Ãªtre inutile !
+
+
+#FSC
+try:
+    FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT)    #crÃ©ation ou ouverture de la file
+    print("FSC: Creation/Ouverture de la file de message serveur to client")
+except pos.ExistentialError:
+    S = pos.unlink_message_queue("/queueFSC") #destruction de la file
+    FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT) #puis redemande    
 
 def fermer_serveur(signal, frame):    #Appelé quand vient l'heure de fermer le serveur avec un ^C
     print("Fermeture du serveur")
     sys.exit(0)
 
+
+
+def fermer_serveur(signal, frame):    #AppelÃ© quand vient l'heure de fermer le serveur avec un ^C
+    print("Fermeture du serveur")
+    sys.exit(0)
+
 def consultation(pidC,numEnreg):
+    global contenu
+    print(pidC)
     try:
-        S = pos.Semaphore("/Semaphore_consul" + nomFichier ,pos.O_CREAT,initial_value=1)
+        S = pos.Semaphore("/Semaphore_consul",pos.O_CREAT|pos.O_EXCL,initial_value=1)
     except pos.ExistentialError:
-        S = pos.Semaphore("/Semaphore_consul" + nomFichier,pos.O_CREAT)
-      #On creer un sémaphore par fichier
+        S = pos.Semaphore("/Semaphore_consul",pos.O_CREAT)
     S.acquire()  #P(S) on bloque l'acces au fichier pour les autres threads 
     try:    #on essaye d'ouvrir le fichier
         with open(nomFichier, "r") as fichier:  #with permet d'ouvrir le fichier puis le ferme automatiquement, ici on ouvre le fichier en lecture
             for enregistrement in fichier.readlines():  #on parcourt tout les enregistrement du fichier
-                if enregistrement.startswith(numEnreg + ": "):     #On cherche l'enregistrement qui correpond au numero rechercher
-                    contenu = enregistrement.strip('\n')    #On récup le contenu de l'enregistrement que le client souhaite (sans le saut de ligne)
+        if enregistrement.startswith(numEnreg + ": "):     #On cherche l'enregistrement qui correpond au numero rechercher
+                    contenu = enregistrement.strip('\n')    #On rÃ©cup le contenu de l'enregistrement que le client souhaite (sans le saut de ligne)  
     except: #si il y a echec, on le notifi
         contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
-    S.release() #V(S) on libère le fichier
+    S.release() #V(S) on libÃ¨re le fichier
+    S.close()   #!!! on ferme le sÃ©maphore
+    print(contenu)
+    FSC.send(contenu,None,1) #On met dans la file FSC le contenu rechercher pour le client 
 
-    S.close()   #!!! on ferme le sémaphore
-    FSC.send(contenu,None,pidC) #On met dans la file FSC le contenu rechercher pour le client 
 
-
-
+def visualisation():
+    try:
+        S = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
+    except pos.ExistentialError:
+        S = pos.Semaphore("/Semaphore_visu" + nomFichier,pos.O_CREAT)
+    S.acquire()  #P(S)
+    try:
+        with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
+            contenu = fichier.read()    #On récupère entierement le contenu du fichier
+    except:
+        contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."   
+    S.release() #V(S)
+    S.close()   #!
+    FSC.send(contenu,None,1)
     
 def modification(pidC,numEnreg,newEnreg):
     try:
@@ -81,7 +114,7 @@ def modification(pidC,numEnreg,newEnreg):
                             Slaps.acquire(8) # on attend max 8s la réponse de l'utilisateur
                             msgCons = FCS.receive(pidClient) #message reçu 
                         except pos.BusyError:   #si le temps d'attente max est dépasser, on notifie l'échec
-                            notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, modification abandonnée."
+                            notif = "Le temps d'attente de " + nbsecondes + " secondes est dépassé, modification abandonnée."v
                         if(msgCons == "o" or msgCons == "O"):
                             enregistrement = numEnreg + ":" + newEnreg + "\n"  #On remplace l'enregistrement voulu
                             fichier.write(enregistrement)    #On réécrit chaque enregistrement
@@ -159,21 +192,7 @@ def adjonction(pidC,newEnreg):
     S.close()   #!
     FSC.send(notif,None,pidC)
  
-def visualisation(pidC):
-    try:
-        S = pos.Semaphore("/Semaphore_visu" + nomFichier ,pos.O_CREAT,initial_value=1)
-    except pos.ExistentialError:
-        S = pos.Semaphore("/Semaphore_visu" + nomFichier,pos.O_CREAT)
-    S.acquire()  #P(S)
-    try:
-        with open(nomFichier, "r") as fichier:  #On ouvre le fichier en lecture
-            contenu = fichier.read()    #On récupère entierement le contenu du fichier
-    except:
-        contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."   
-    S.release() #V(S)
-    
-    S.close()   #!
-    FSC.send(contenu,None,pidC)
+
 
 def main():
     #--- programme serveur: gère les accès concurents entre les modifications et les suppressions.
@@ -192,30 +211,16 @@ def main():
         S = pos.unlink_message_queue("/queueFCS") #destruction de la file
         FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT) #puis redemande
 
-    #FSC
-    try:
-        FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT)    #création ou ouverture de la file
-        print("FSC: Creation/Ouverture de la file de message serveur to client")
-    except pos.ExistentialError:
-        S = pos.unlink_message_queue("/queueFSC") #destruction de la file
-        FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT) #puis redemande
-
-
-    #On récupère les paramètres et varables utiles        
-    nomFichier = sys.argv[0]    #récupère le 1er paramètre, le nom du fichier
-    nbsecondes = sys.argv[1]    #récupère le 2eme paramètre, le nombre de secondes
-    pidServeur = os.getpid()     #On récupère l'id du processus serveur, peut être inutile !
-
     #La partie qui boucle du serveur 
     while True:
-        messageClient = FCS.receive(0)   # 0 car on prend en FIFO, voir "TP UNIX-Python SEANCE 2016v2 tout à la fin"
+        messageClient = FCS.receive()   # 0 car on prend en FIFO, voir "TP UNIX-Python SEANCE 2016v2 tout à la fin"
         #!! receive retourne, selon ce même pdf, un tuple de (message,type), comment récupérer juste le msg ? j'ai mis [0] dans le doute, à tester
         listInfo = messageClient[0].split("/") #ici on split les informations reçu pour les stockés et les utiliser plus tard
         action = listInfo[0]
         pidClient = listInfo[1]
-        nomFichier = listInfo[2]
-        numEnregistrement = listInfo[3]     #numEnreg peut être "-" parfois
-        nouvelEnreg = listInfo[4]     #nouvelEnreg peut être "-" parfois
+        nomFichier = listInfo[3]
+        numEnregistrement = listInfo[4]     #numEnreg peut être "-" parfois
+        nouvelEnreg = listInfo[5]     #nouvelEnreg peut être "-" parfois
         
         #New thread(split(3), (split 1 et 2)) /*split 1 et 2 correspondent aux autres infos envoyées comme par exemple le pid ou le numéro d’enregistrement*/
 
@@ -229,7 +234,7 @@ def main():
         elif action == 'adjonction':
                 thread.start_new_thread(adjonction(pidClient,nouvelEnreg))
         elif action == 'visualisation':
-                thread.start_new_thread(visualisation(pidClient))
+                thread.start_new_thread(visualisation,())
 
 #on lance le daemon, main etant dans le run de ce dernier
 #serveur = Daemon()

@@ -11,8 +11,14 @@ def consultation():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
     print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgCons = FSC.receive(pidClient) #receive a revoir !
-    print(format(msgCons))  #On recois et on affiche le résultat de la requete
+    msgCons = FSC.receive() 
+    print(msgCons)  #On recois et on affiche le résultat de la requete
+
+def visualisation():
+    FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, 3)    #On réalise une visualisation
+    print("Veuillez patienter le temps que le serveur traite votre requete")
+    msgVisu = FSC.receive()  #!
+    print(msgVisu)   
     
 def modification():
     Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier ,pos.O_CREAT,initial_value=0)
@@ -59,11 +65,7 @@ def adjonction():
     print(format(msgAdj))
 
  
-def visualisation():
-    FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, 3)    #On réalise une visualisation
-    print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgVisu = FSC.receive(pidClient)  #!
-    print(format(msgVisu))
+
 
  
 def quitter():
