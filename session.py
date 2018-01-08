@@ -17,14 +17,14 @@ def consultation():
 def modification():
     Slaps = pos.Semaphore("/Semaphore_laps" + nomFichier ,pos.O_CREAT,initial_value=0)
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez modifier.")
-    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2) #On réalise déjà une consultation
+    FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgCons = FSC.receive(pidClient) #!
     print(format(msgCons))
     choixModif = raw_input("Voulez vous changer ce contenu ? O/N")  #on demande a l'user si il veut vraiment modifier l'enregistrement qu'on vient de lui afficher
     if choixModif == "O":
         NouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")    #si oui, il entre le nouveau
-        FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + str(NouvelEnreg) , None, 1)    #On réalise mtn une modification
+        FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)    #On réalise mtn une modification
         Slaps.release()
         print("Veuillez patienter le temps que le serveur traite votre requete")
         msgModif = FSC.receive(pidClient)   #!
@@ -33,6 +33,7 @@ def modification():
         print("Modification annulée.")
     else:
         print("Entrée invalide, modification annulée.")
+    Slaps.close()
 
 def suppression():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez supprimer.")
