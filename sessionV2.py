@@ -12,13 +12,18 @@ nomFichier = sys.argv[0]    #récupère le 1er paramètre, où le nom du fichier
 pidClient = os.getpid()     #On récupère l'id du processus client
 
 def ouvrirFileServeurToClient(pidClient,nomFichier):
-    FStoC = pos.MessageQueue("/queue-" + pidClient + "-" + nomFichier,pos.O_CREAT)    #création ou ouverture de la file de serveur vers client, une file par client et par fichier
+    try:
+        FStoC = pos.MessageQueue("/queue-" + str(pidClient) + "-" + nomFichier,pos.O_CREAT)    #crÃ©ation ou ouverture de la file
+    except pos.ExistentialError:
+        S = pos.unlink_message_queue("/queue-" + str(pidClient) + "-" + nomFichier) #destruction de la file
+        FStoC = pos.MessageQueue("/queue-" + str(pidClient) + "-" + nomFichier,pos.O_CREAT) #puis redemande
+
+    
 
 def consultation():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
     print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
-    
     ouvrirFileServeurToClient(pidClient,nomFichier)
     msgCons = FStoC.receive(int(pidClient))
     #msgCons = FSC.receive(int(pidClient)) #receive a revoir !

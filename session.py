@@ -7,98 +7,151 @@ import time
 import posix_ipc as pos
 import subprocess
 
-def init():
-    #Initialisation des deux files FCS et FSC
-    #!!! problÃ¨me potentiel initialisation,  si erreur Ã§a detruit puis Ã§a recreer (perte msg?)? quel erreur ?
-    # a voir avec le tp ConsMessage !!!
+#On récupère les paramètres et varables utiles                
+nomFichier = sys.argv[0]    #récupère le 1er paramètre, où le nom du fichier doit être spécifier
+pidClient = os.getpid()     #On récupère l'id du processus client
 
-    #FCS
-    try:
-        FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT)    #crÃ©ation ou ouverture de la file
-        print("FCS: Creation/Ouverture de la file de message client to serveur")
-    except pos.ExistentialError:
-        S = pos.unlink_message_queue("/queueFCS") #destruction de la file
-        FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT) #puis redemande
+#FCS
 
-    #FSC
-    try:
-        FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT)    #crÃ©ation ou ouverture de la file
-        print("FSC: Creation/Ouverture de la file de message serveur to client")
-    except pos.ExistentialError:
-        S = pos.unlink_message_queue("/queueFSC") #destruction de la file
-        FSC = pos.MessageQueue("/queueFSC",pos.O_CREAT) #puis redemande
 
-    #On rÃ©cupÃ¨re les paramÃ¨tres et varables utiles                
-    nomFichier = sys.argv[0]    #rÃ©cupÃ¨re le 1er paramÃ¨tre, oÃ¹ le nom du fichier doit Ãªtre spÃ©cifier
-    pidClient = os.getpid()     #On rÃ©cupÃ¨re l'id du processus client
+#FSC
+
+try:
+    FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT)    #création ou ouverture de la file
+    print("FCS: Creation/Ouverture de la file de message client to serveur")
+except pos.ExistentialError:
+    S = pos.unlink_message_queue("/queueFCS") #destruction de la file
+    FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT) #puis redemande
+
+try:
+    FSC = pos.MessageQueue("/queueFSC"+str(pidClient),pos.O_CREAT)    #création ou ouverture de la file
+    print("FSC: Creation/Ouverture de la file de message serveur to client")
+except pos.ExistentialError:
+    S = pos.unlink_message_queue("/queueFSC"+str(pidClient)) #destruction de la file
+    FSC = pos.MessageQueue("/queueFSC"+str(pidClient),pos.O_CREAT) #puis redemande
+
 
 def consultation():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
-    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1) #On lance le message en concÃ©quence, et avec toutes les informations utiles
+    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
     print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
     msgCons = FSC.receive() #receive a revoir !
-    print(msgCons)  #On recois et on affiche le rÃ©sultat de la requete
+    print(msgCons)  #On recois et on affiche le résultat de la requete
+    FSC.unlink()
+    FSC.close()
 
 def visualisation():
-    FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, 1)    #On rÃ©alise une visualisation
+    FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, pidClient)    #On réalise une visualisation
     print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
+    time.sleep(4)
     msgVisu = FSC.receive()  #!
     print(msgVisu)
+    FSC.unlink()
+    FSC.close()
     
 def modification():
+    try:
+        Slaps= pos.Semaphore("/Semaphore_laps",pos.O_CREAT|pos.O_EXCL,initial_value=0)
+    except pos.ExistentialError:
+        Slaps= pos.Semaphore("/Semaphore_laps",pos.O_CREAT)
     #subprocess.call("start python prog2.py")
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez modifier.")
-    FCS.send("modifiation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2) #On rÃ©alise dÃ©jÃ  une consultation
-    print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgCons = FSC.receive() #!
-    print(format(msgCons))
-    choixModif = raw_input("Voulez vous changer ce contenu ? O/N")  #on demande a l'user si il veut vraiment modifier l'enregistrement qu'on vient de lui afficher
-    if choixModif == "O":
-        nouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")    #si oui, il entre le nouveau
-        FCS.send(str(nouvelEnreg) , None, 2)
-        print("Veuillez patienter le temps que le serveur traite votre requete")
-        msgModif = FSC.receive()   #!
-        print(format(msgModif))
-    elif choixModif == "N":
-        print("Modification annulÃ©e.")
-    else:
-        print("EntrÃ©e invalide, modification annulÃ©e.")
-
-def suppression():
-    #subprocess.call("start python prog2.py")
-    recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez supprimer.")
-    FCS.send("suppression" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2)  #On rÃ©alise dÃ©jÃ  une consultation
+    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, pidClient) #On réalise déjà une consultation
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgCons = FSC.receive(pidClient) #!
     print(format(msgCons))
+    FCS.send("tempsAttente"+ "/" + str(pidClient) + "/" + nomFichier +"/ - / -", None, 2)
+    choixModif = raw_input("Voulez vous changer ce contenu ? O/N")  #on demande a l'user si il veut vraiment modifier l'enregistrement qu'on vient de lui afficher
+    if choixModif == "O":
+	Slaps.release()
+	msgAttente=FSC.receive()
+	msgA,pidMes=msgAttente
+	if msgA == "ok":
+           NouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")    #si oui, il entre le nouveau
+           FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + str(NouvelEnreg) , None, 1)    #On réalise mtn une modification
+           print("Veuillez patienter le temps que le serveur traite votre requete")
+           msgModif = FSC.receive(pidClient)   #!
+           print(format(msgModif))
+        else:
+	   Slaps.acquire()
+	   print("Le temps d'attente de votre reponse est depasse votre requete va etre annule")
+    elif choixModif == "N":
+        Slaps.release()
+        print("Modification annulée.")
+	msgAttente=FSC.receive()
+	msgA,pidMes=msgAttente
+	if msgA != "ok":
+	   Slaps.acquire()
+    else:
+        print("Entrée invalide, modification annulée.")
+    Slaps.close()
+    FSC.unlink()
+    FSC.close()
+
+def suppression():
+    try:
+        Slaps= pos.Semaphore("/Semaphore_laps",pos.O_CREAT|pos.O_EXCL,initial_value=0)
+    except pos.ExistentialError:
+        Slaps= pos.Semaphore("/Semaphore_laps",pos.O_CREAT)
+    #subprocess.call("start python prog2.py")
+    recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez supprimer.")
+    FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2)  #On réalise déjà une consultation
+    print("Veuillez patienter le temps que le serveur traite votre requete")
+    msgCons = FSC.receive(pidClient) #!
+    print(format(msgCons))
+    FCS.send("tempsAttente"+ "/" + str(pidClient) + "/" + nomFichier +"/ - / -", None, 2)
     choixModif = raw_input("Voulez vous supprimer ce contenu ? O/N") #on demande a l'user si il veut vraiment supprimer l'enregistrement qu'on vient de lui afficher
     if choixModif == "O":
-        FCS.send("suppression" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)  #Si oui, on rÃ©alise mtn une suppression
-        print("Veuillez patienter le temps que le serveur traite votre requete")
-        msgSupp = FSC.receive(pidClient)   #!
-        print(format(msgSupp))
+        Slaps.release()
+	msgAttente=FSC.receive()
+	msgA,pidMes=msgAttente
+	if msgA == "ok":
+            FCS.send("suppression" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)  #Si oui, on réalise mtn une suppression
+            print("Veuillez patienter le temps que le serveur traite votre requete")
+            msgSupp = FSC.receive(pidClient)   #!
+            print(format(msgSupp))
+	else:
+	    Slaps.acquire()
+	    print("Le temps d'attente de votre reponse est depasse votre requete va etre annule")
     elif choixModif == "N":
-        print("Suppression annulÃ©e.")
+	Slaps.release()
+        print("Suppression annulée.")
+	msgAttente=FSC.receive()
+	msgA,pidMes=msgAttente
+	if msgA != "ok":
+	   Slaps.acquire()
     else:
-        print("EntrÃ©e invalide, suppression annulÃ©e.")
+        print("Entrée invalide, suppression annulée.")
+    Slaps.close()
+    FSC.unlink()
+    FSC.close()
      
 def adjonction():
     recupNouvelEnreg = raw_input("Veuillez entrer votre nouvel enregistrement.")
-    FCS.send("adjonction" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + str(recupNouvelEnreg) , None, 3)  #On rÃ©alise une adjonction
+    FCS.send("adjonction" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + str(recupNouvelEnreg) , None, 3)  #On réalise une adjonction
     print("Veuillez patienter le temps que le serveur traite votre requete")
     msgAdj = FSC.receive(pidClient) #!
     print(format(msgAdj))
+    FSC.unlink()
+    FSC.close()
  
 def quitter():
     sys.exit(0)
 
-#--- programme client: l'on demande Ã  l'utilisateur ce qu'il veut faire sur le fichier en paramÃ¨tre, l'on rÃ©alise l'action, envois des messages puis rÃ©ception du rÃ©sultat/notification.
+#--- programme client: l'on demande à l'utilisateur ce qu'il veut faire sur le fichier en paramètre, l'on réalise l'action, envois des messages puis réception du résultat/notification.
+#Initialisation des deux files FCS et FSC
 
-init()  #on init les variables globales et les files
+#!!! problème potentiel initialisation,  si erreur ça detruit puis ça recreer (perte msg?)? quel erreur ?
+# a voir avec le tp ConsMessage !!!
+
+
+
+
+
 
 actionEffectue = False
 while actionEffectue == False:   #On recommence tant qu'on a pas une action valide
-    recupValeur = raw_input("Choisissez le type de requete : C, M, S, A, V ou F ")  #On fait choisir une action Ã  l'utilisateur
+    recupValeur = raw_input("Choisissez le type de requete : C, M, S, A, V ou F ")  #On fait choisir une action à l'utilisateur
     if recupValeur == 'C':
             consultation()
             actionEffectue = True
@@ -118,6 +171,6 @@ while actionEffectue == False:   #On recommence tant qu'on a pas une action vali
             quitter()
             actionEffectue = True
     else:
-        print("EntrÃ©e invalide, veuillez recommencer.")
+        print("Entrée invalide, veuillez recommencer.")
     
 quitter()

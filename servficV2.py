@@ -262,7 +262,6 @@ def main():
             #!! receive retourne, selon ce même pdf, un tuple de (message,type), comment récupérer juste le msg ? j'ai mis [0] dans le doute, à tester
             listInfo = messageClient[0].split("/") #ici on split les informations reçu pour les stockés et les utiliser plus tard
             action = listInfo[0]
-            print(messageClient)
             pidClient = listInfo[1]
             nomFichier = listInfo[3]
             numEnregistrement = listInfo[4]     #numEnreg peut être "-" parfois
