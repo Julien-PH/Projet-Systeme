@@ -34,6 +34,9 @@ def fermer_serveur(signal, frame):    #Appelé quand vient l'heure de fermer le 
     print("Fermeture du serveur")
     sys.exit(0)
 
+def ouvrirFileServeurToClient(pidC,nomFichier):
+    FStoC = pos.MessageQueue("/queue-" + pidC + "-" + nomFichier,pos.O_CREAT)    #création ou ouverture de la file de serveur vers client, une file par client et par fichier
+
 def tempsAttente():
     #print("1")
     try:
@@ -68,7 +71,11 @@ def consultation(pidC,numEnreg):
         contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
     S.release() #V(S) on libère le fichier
     S.close()   #!!! on ferme le sémaphore
-    FSC.send(contenu,None,int(pidC)) #On met dans la file FSC le contenu rechercher pour le client
+
+    ouvrirFileServeurToClient(pidC,nomFichier)
+    FStoC.send(contenu,None,int(pidC))
+    #FSC.send(contenu,None,int(pidC)) #On met dans la file FSC le contenu rechercher pour le client
+    
 
 def visualisation(pidC):
     try:
@@ -82,8 +89,11 @@ def visualisation(pidC):
     except:
         contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."   
     S.release() #V(S)
-    S.close()  
-    FSC.send(contenu,None,int(pidC)) 
+    S.close()
+
+    ouvrirFileServeurToClient(pidC,nomFichier)
+    FStoC.send(contenu,None,int(pidC))
+    #FSC.send(contenu,None,int(pidC)) 
     
 def modification(pidC,numEnreg,newEnreg):
     try:
@@ -132,7 +142,10 @@ def modification(pidC,numEnreg,newEnreg):
     Sadd.close()
     Svisu.release() #V(S)
     Svisu.close()
-    FSC.send(notif,None,int(pidC))
+
+    ouvrirFileServeurToClient(pidC,nomFichier)
+    FStoC.send(contenu,None,int(pidC))
+    #FSC.send(notif,None,int(pidC))
 
 def suppression(pidC,numEnreg):
     try:
@@ -186,7 +199,10 @@ def suppression(pidC,numEnreg):
     Sadd.close()
     Svisu.release() #V(S)
     Svisu.close()
-    FSC.send(notif,None,int(pidC))
+
+    ouvrirFileServeurToClient(pidC,nomFichier)
+    FStoC.send(contenu,None,int(pidC))
+    #FSC.send(notif,None,int(pidC))
      
 def adjonction(pidC,newEnreg):
     newNum=1
@@ -213,9 +229,11 @@ def adjonction(pidC,newEnreg):
     print(pidC)
     S.release() #V(S)
     S.close()   #!
-    FSC.send(notif,None,int(pidC))
- 
 
+    ouvrirFileServeurToClient(pidC,nomFichier)
+    FStoC.send(contenu,None,int(pidC))
+    #FSC.send(notif,None,int(pidC))
+ 
 
 def main():
     #--- programme serveur: gère les accès concurents entre les modifications et les suppressions.

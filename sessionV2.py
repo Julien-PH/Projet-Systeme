@@ -11,18 +11,27 @@ import subprocess
 nomFichier = sys.argv[0]    #récupère le 1er paramètre, où le nom du fichier doit être spécifier
 pidClient = os.getpid()     #On récupère l'id du processus client
 
+def ouvrirFileServeurToClient(pidClient,nomFichier):
+    FStoC = pos.MessageQueue("/queue-" + pidClient + "-" + nomFichier,pos.O_CREAT)    #création ou ouverture de la file de serveur vers client, une file par client et par fichier
+
 def consultation():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez consulter.")  #on demande a l'user d'entrer son num d'enregistrement pour creer la requete
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 3) #On lance le message en concéquence, et avec toutes les informations utiles
     print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
-    msgCons = FSC.receive(int(pidClient)) #receive a revoir !
+    
+    ouvrirFileServeurToClient(pidClient,nomFichier)
+    msgCons = FStoC.receive(int(pidClient))
+    #msgCons = FSC.receive(int(pidClient)) #receive a revoir !
     print(msgCons)  #On recois et on affiche le résultat de la requete
 
 def visualisation():
     FCS.send("visualisation" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + "-", None, pidClient)    #On réalise une visualisation
     print("Veuillez patienter le temps que le serveur traite votre requete: "+str(pidClient))
     time.sleep(8)
-    msgVisu = FSC.receive(int(pidClient))  #!
+
+    ouvrirFileServeurToClient(pidClient,nomFichier)
+    msgVisu = FStoC.receive(int(pidClient))
+    #msgVisu = FSC.receive(int(pidClient))  #!
     print(msgVisu)
     
 def modification():
@@ -34,7 +43,10 @@ def modification():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez modifier.")
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, pidClient) #On réalise déjà une consultation
     print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgCons = FSC.receive(pidClient) #!
+
+    ouvrirFileServeurToClient(pidClient,nomFichier)
+    msgCons = FStoC.receive(pidClient)
+    #msgCons = FSC.receive(pidClient) #!
     print(format(msgCons))
     FCS.send("tempsAttente"+ "/" + str(pidClient) + "/" + nomFichier +"/ - / -", None, 2)
     choixModif = raw_input("Voulez vous changer ce contenu ? O/N")  #on demande a l'user si il veut vraiment modifier l'enregistrement qu'on vient de lui afficher
@@ -46,7 +58,8 @@ def modification():
            NouvelEnreg = raw_input("Veuillez entrer le nouvel enregistrement.")    #si oui, il entre le nouveau
            FCS.send("modification" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + str(NouvelEnreg) , None, 1)    #On réalise mtn une modification
            print("Veuillez patienter le temps que le serveur traite votre requete")
-           msgModif = FSC.receive(pidClient)   #!
+           msgModif = FStoC.receive(pidClient)
+           #msgModif = FSC.receive(pidClient)   #!
            print(format(msgModif))
         else:
 	   print("Le temps d'attente de votre reponse est depasse votre requete va etre annule")
@@ -67,7 +80,9 @@ def suppression():
     recupNumEnreg = raw_input("Veuillez entrer le numero d'enregistrement que vous voulez supprimer.")
     FCS.send("consultation" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 2)  #On réalise déjà une consultation
     print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgCons = FSC.receive(pidClient) #!
+    ouvrirFileServeurToClient(pidClient,nomFichier)
+    msgCons = FStoC.receive(pidClient)
+    #msgCons = FSC.receive(pidClient) #!
     print(format(msgCons))
     FCS.send("tempsAttente"+ "/" + str(pidClient) + "/" + nomFichier +"/ - / -", None, 2)
     choixModif = raw_input("Voulez vous supprimer ce contenu ? O/N") #on demande a l'user si il veut vraiment supprimer l'enregistrement qu'on vient de lui afficher
@@ -78,7 +93,8 @@ def suppression():
 	if msgA == "ok":
             FCS.send("suppression" + "/" + str(pidClient) + "/" + nomFichier + "/" + str(recupNumEnreg) + "/" + "-" , None, 1)  #Si oui, on réalise mtn une suppression
             print("Veuillez patienter le temps que le serveur traite votre requete")
-            msgSupp = FSC.receive(pidClient)   #!
+            msgSupp = FStoC.receive(pidClient)
+            #msgSupp = FSC.receive(pidClient)   #!
             print(format(msgSupp))
 	else:
 	    print("Le temps d'attente de votre reponse est depasse votre requete va etre annule")
@@ -95,7 +111,9 @@ def adjonction():
     recupNouvelEnreg = raw_input("Veuillez entrer votre nouvel enregistrement.")
     FCS.send("adjonction" + "/" + str(pidClient) + "/" + nomFichier + "/" + "-" + "/" + str(recupNouvelEnreg) , None, 3)  #On réalise une adjonction
     print("Veuillez patienter le temps que le serveur traite votre requete")
-    msgAdj = FSC.receive(pidClient) #!
+    ouvrirFileServeurToClient(pidClient,nomFichier)
+    msgAdj = FStoC.receive(pidClient)
+    #msgAdj = FSC.receive(pidClient) #!
     print(format(msgAdj))
  
 def quitter():
