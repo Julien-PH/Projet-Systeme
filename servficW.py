@@ -229,11 +229,11 @@ def main():
 
     #FCS
     try:
-        FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT)    #création ou ouverture de la file
+        FCS = pos.MessageQueue("/queueFCS"+str(nomFichier),pos.O_CREAT)    #création ou ouverture de la file
         print("FCS: Creation/Ouverture de la file de message client to serveur")
     except pos.ExistentialError:
-        S = pos.unlink_message_queue("/queueFCS") #destruction de la file
-        FCS = pos.MessageQueue("/queueFCS",pos.O_CREAT) #puis redemande
+        S = pos.unlink_message_queue("/queueFCS"+str(nomFichier)) #destruction de la file
+        FCS = pos.MessageQueue("/queueFCS"+str(nomFichier),pos.O_CREAT) #puis redemande
 
     
 	
@@ -245,9 +245,9 @@ def main():
             listInfo = messageClient[0].split("/") #ici on split les informations reçu pour les stockés et les utiliser plus tard
             action = listInfo[0]
             pidClient = listInfo[1]
-            nomFichier = listInfo[3]
-            numEnregistrement = listInfo[4]     #numEnreg peut être "-" parfois
-            nouvelEnreg = listInfo[5]     #nouvelEnreg peut être "-" parfois
+            nomFichier = listInfo[2]
+            numEnregistrement = listInfo[3]     #numEnreg peut être "-" parfois
+            nouvelEnreg = listInfo[4]     #nouvelEnreg peut être "-" parfois
         
             #New thread(split(3), (split 1 et 2)) /*split 1 et 2 correspondent aux autres infos envoyées comme par exemple le pid ou le numéro d’enregistrement*/
 
