@@ -14,6 +14,7 @@ nomFichier = sys.argv[2]    #récupère le 1er paramètre, le nom du fichier
 nbsecondes = sys.argv[4]    #récupère le 2eme paramètre, le nombre de secondes
 pidServeur = os.getpid()     #On récupère l'id du processus serveur, peut être inutile !
 
+#On va creer les sémaphore qui serviront ensuite, a l'interieur d'une fonction cela ne fonctionne pas.
 try:
     Ssupp = pos.Semaphore("/Semaphore_supp" + nomFichier ,pos.O_CREAT,initial_value=1)
 except pos.ExistentialError:
@@ -43,7 +44,7 @@ def fermer_serveur(signal, frame):    #Appelé quand vient l'heure de fermer le 
     print("\nFermeture du serveur")
     sys.exit(0)
 
-
+#permet de trouver des fichier qui ne sont pas dans le même dossier que ce serveur.
 def cherchefichier(fichier, rep):
  
     entrees = os.listdir(rep)
@@ -64,7 +65,7 @@ def cherchefichier(fichier, rep):
 
 def tempsAttente(pidC):
     try:
-        FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file
+        FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file, on precise le pid client pour creer une file pas client
         #print("FSC: Creation/Ouverture de la file de message serveur to client")
     except pos.ExistentialError:
         S = pos.unlink_message_queue("/queueFSC"+str(pidC)) #destruction de la file
@@ -80,6 +81,7 @@ def tempsAttente(pidC):
 	#print("\nLe temps d'attente est depasse votre requete va etre annule")
         FSC.send("pas ok")
 
+#permet d'effectuer une consultation d'un enregistrement
 def consultation(pidC,numEnreg):
     try:
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file
@@ -100,16 +102,17 @@ def consultation(pidC,numEnreg):
     try:    #on essaye d'ouvrir le fichier
         with open(cheminObs, "r") as fichier:  #with permet d'ouvrir le fichier puis le ferme automatiquement, ici on ouvre le fichier en lecture
             for enregistrement in fichier.readlines():  #on parcourt tout les enregistrement du fichier
-		if enregistrement.startswith(numEnreg + ": "):     #On cherche l'enregistrement qui correpond au numero rechercher
-                      find = True
-		      contenu = enregistrement.strip('\n')     
+				if enregistrement.startswith(numEnreg + ": "):     #On cherche l'enregistrement qui correpond au numero rechercher
+					find = True
+					contenu = enregistrement.strip('\n')     
     	    if find == False:
-                    contenu = "l'enregistrement que vous cherchez n'existe pas"	    	
+				contenu = "l'enregistrement que vous cherchez n'existe pas"	    	
     except: #si il y a echec, on le notifi
         contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."
     Sconsul.release() #V(S) on libère le fichier    
     FSC.send(contenu,None,int(pidC)) #On met dans la file FSC le contenu rechercher pour le client
    	
+#permet de lire tout un fichier
 def visualisation(pidC):
     try:
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file
@@ -125,7 +128,8 @@ def visualisation(pidC):
         contenu = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."   
     Svisu.release() #V(S)
     FSC.send(contenu,None,int(pidC))
-    
+  
+#permet d'effectuer une modification sur un enregistrement  
 def modification(pidC,numEnreg,newEnreg):
     try:
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file
@@ -133,25 +137,27 @@ def modification(pidC,numEnreg,newEnreg):
     except pos.ExistentialError:
         S = pos.unlink_message_queue("/queueFSC"+str(pidC)) #destruction de la file
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT) #puis redemande
+	#On bloque les autres actions possibles
     Smodif.acquire()
     Sconsul.acquire()
     Sadd.acquire()
     Svisu.acquire()
     Ssupp.acquire()
     try:
-        with open(nomFichier, "r") as fichier:
+        with open(nomFichier, "r") as fichier:	#on lis entierement le fichier pour le récuperer
             listEnregistrements = fichier.readlines()
         try:
-            with open(nomFichier, "w") as fichier:
+            with open(nomFichier, "w") as fichier:	#puis on le récrit a partir de ce que l'on a recuperer en modifiant ce que l'on cherche
                 for enregistrement in listEnregistrements:
-                    if enregistrement.startswith(numEnreg + ": "):
-			enregistrement = numEnreg + ": " + newEnreg + "\n"
+                    if enregistrement.startswith(numEnreg + ": "): #lorsque on a trouvé le bon enregistrement, on le change
+						enregistrement = numEnreg + ": " + newEnreg + "\n"
                     fichier.write(enregistrement)
                 notif = "Modification effectue sur l'enregistrement numero " + numEnreg + "."	               
 	except:
               notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."            
     except:
            notif = "Le fichier " + nomFichier + " est introuvable ou nest pas accessible."
+	#on libere les autres actions
     Smodif.release()
     Ssupp.release() #V(S)
     Sconsul.release() #V(S)
@@ -159,6 +165,7 @@ def modification(pidC,numEnreg,newEnreg):
     Svisu.release() #V(S)
     FSC.send(notif,None,int(pidC))
 
+#permet de supprimer un enregistrement
 def suppression(pidC,numEnreg):
     try:
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file
@@ -166,35 +173,37 @@ def suppression(pidC,numEnreg):
     except pos.ExistentialError:
         S = pos.unlink_message_queue("/queueFSC"+str(pidC)) #destruction de la file
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT) #puis redemande
-    Ssupp.acquire()
+    #On bloque les autres actions possibles
+	Ssupp.acquire()
     Sconsul.acquire()
     Sadd.acquire()
     Svisu.acquire()
     Smodif.acquire()
-    try:
-        with open(nomFichier, "r") as fichier:
+	try:
+		with open(nomFichier, "r") as fichier:	#on lis entierement le fichier pour le récuperer
             listEnregistrements = fichier.readlines()
-        try:
-            with open(nomFichier, "w") as fichier:
-                for enregistrement in listEnregistrements:
-                    if not enregistrement.startswith(numEnreg + ": "):
-		       numEnr,newEnregis=enregistrement.split(":")
-		       if numEnr>numEnreg:
-			  numEnr=int(numEnr)-1
-                       fichier.write(str(numEnr)+":"+newEnregis)
-                    notif = "Suppression effectue sur l'enregistrement numero " + numEnreg + "."
+		try:
+            with open(nomFichier, "w") as fichier:	#puis on le récrit a partir de ce que l'on a recuperer en supprimant ce que l'on cherche
+				for enregistrement in listEnregistrements:
+					if not enregistrement.startswith(numEnreg + ": "):
+						numEnr,newEnregis=enregistrement.split(":")
+						if numEnr>numEnreg:
+							numEnr=int(numEnr)-1
+						fichier.write(str(numEnr)+":"+newEnregis)
+						notif = "Suppression effectue sur l'enregistrement numero " + numEnreg + "."
         except:
               notif = "Le fichier " + nomFichier + " est introuvable ou n'est pas accessible."            
     except:
            notif = "Le fichier " + nomFichier + " est introuvable ou nest pas accessible."
-    Ssupp.release() #V(S)
+	#on libere les autres actions
+	Ssupp.release() #V(S)
     Smodif.release()
     Sconsul.release() #V(S)
     Sadd.release() #V(S)
     Svisu.release() #V(S)
     FSC.send(notif,None,int(pidC))
 
-     
+#permet d'ajouter un enregistrement en fin de fichier
 def adjonction(pidC,newEnreg):
     try:
         FSC = pos.MessageQueue("/queueFSC"+str(pidC),pos.O_CREAT)    #création ou ouverture de la file
@@ -227,7 +236,7 @@ def main():
 
     #FCS
     try:
-        FCS = pos.MessageQueue("/queueFCS"+nomFichier,pos.O_CREAT)    #création ou ouverture de la file
+        FCS = pos.MessageQueue("/queueFCS"+nomFichier,pos.O_CREAT)    #création ou ouverture de la file, on precise le nom d fichier pour differencier les serveurs entre eux
         #print("FCS: Creation/Ouverture de la file de message client to serveur")
     except pos.ExistentialError:
         S = pos.unlink_message_queue("/queueFCS"+nomFichier) #destruction de la file
